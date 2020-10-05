@@ -4,9 +4,9 @@
 
 // Set matrix X and Y lengths as constants
 #define A_X 3
-#define A_Y 4
+#define A_Y 3
 // Inverse A_X and A_Y for second matrix
-#define B_X 4
+#define B_X 3
 #define B_Y 3
 // Final matrix dimensions are Y size of matrix A by X size of matrix B
 int Z_X = A_X;
@@ -63,7 +63,7 @@ int main (int argc, char* argv[]) {
         pthread_join( threadIds[i], NULL);
     }
     
-    printf("Matrix A * Matrix B =\n");
+    printf("Result of Matrix A * Matrix B =\n");
     printf("Matrix Z:\n");
     printMatrix(MATRIX_Z, Z_X, Z_Y);
     
@@ -78,21 +78,22 @@ void* calculate (void* param) {
     int* cellIndex = (int*)param;
     
     // Figure out column from modulus of final matrix Y size
-    int row = *cellIndex % Z_Y;
+    int col = *cellIndex % Z_Y;
     // Figure out which row by dividing by final matrix X size
-    // Ignore decimal
-    int col = *cellIndex / Z_X;
+    int row = *cellIndex / Z_X;
     
     //printf("Threads id %ld using row %d and col %d from index %d\n", pthread_self(), row, col, *cellIndex);
     
+    // Work out total of multiplication by accessing row of Matrix A and
+    // column of Matrix B
     int total = 0;
     for (int i = 0; i < A_Y; i++) {
-        int aVal = *(MATRIX_A + i (A_X * row));
-        int bVal = *(MATRIX_B + (col * B_Y) + i);
-        total += aVal * bVal;
+        int aVal = *(MATRIX_A + i + (A_X * row));
+        int bVal = *(MATRIX_B + (i * B_Y) + col);
+        total += (aVal * bVal);
     }
     
-    printf("Value at row %d col %d is is %d\n", row, col, total);
+    //printf("Value at row %d col %d is is %d\n", row, col, total);
 
     /// Insert value into final matrix
     *(MATRIX_Z + *cellIndex) = total;
@@ -104,8 +105,9 @@ void* calculate (void* param) {
 void printMatrix (int* matrix, int xCount, int yCount) {
     for (int i = 0; i < xCount; i++) {
         for(int j = 0; j < yCount; j++) {
-            printf("Matrix[%d][%d] = %d\n", i, j, *(matrix + (i * yCount) + j));
+            printf("%d    ", *(matrix + (i * yCount) + j));
         }
+        printf("\n");
     }
 }
 
@@ -114,6 +116,6 @@ void printMatrix (int* matrix, int xCount, int yCount) {
 */
 void populateMatrix (int* matrix, int xCount, int yCount) {
     for (int i = 0; i < xCount * yCount; i++) {
-        *(matrix + i) = i; // rand() % 20;
+        *(matrix + i) = rand() % 20; //i;
     }
 }
