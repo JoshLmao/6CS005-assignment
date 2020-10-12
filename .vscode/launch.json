@@ -9,7 +9,10 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/${fileBasenameNoExtension}",
-            "args": [],
+            "args": [
+                "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrixA.txt",
+                "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrixB.txt"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
