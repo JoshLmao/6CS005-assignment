@@ -15,8 +15,7 @@ struct MatrixSize MATRIX_A_SIZE;
 /// size of Matrix B
 struct MatrixSize MATRIX_B_SIZE;
 // Final matrix dimensions are Y size of matrix A by X size of matrix B
-int Z_X;
-int Z_Y;
+struct MatrixSize MATRIX_Z_SIZE;
 
 /// Pointer to MATRIX_A with row length of A_X, col length of A_Y
 int* MATRIX_A;
@@ -50,13 +49,12 @@ int main (int argc, char* argv[]) {
     }
 
     /// Determine matrix sizes of files
-    struct MatrixSize matrixASize, matrixBSize;
-    matrixASize = getMatrixFileSize(matrixAFile);
-    matrixBSize = getMatrixFileSize(matrixBFile);
+    MATRIX_A_SIZE = getMatrixFileSize(matrixAFile);
+    MATRIX_B_SIZE = getMatrixFileSize(matrixBFile);
 
     /// Load specified files and check they are valid
-    MATRIX_A = loadMatrixFromFile(matrixAFile, matrixASize);
-    MATRIX_B = loadMatrixFromFile(matrixBFile, matrixBSize);
+    MATRIX_A = loadMatrixFromFile(matrixAFile, MATRIX_A_SIZE);
+    MATRIX_B = loadMatrixFromFile(matrixBFile, MATRIX_B_SIZE);
 
     if ( MATRIX_A == NULL || MATRIX_B == NULL ) {
         printf("Unable to load one or both of the specified files.\n");
@@ -65,13 +63,15 @@ int main (int argc, char* argv[]) {
 
     /// Print out loaded A and B matrices
     printf("Matrix A:\n");
-    printMatrix(MATRIX_A, matrixASize.x, matrixASize.y);
+    printMatrix(MATRIX_A, MATRIX_A_SIZE.x, MATRIX_A_SIZE.y);
     printf("Matrix B:\n");
-    printMatrix(MATRIX_B, matrixBSize.x, matrixBSize.y);
+    printMatrix(MATRIX_B, MATRIX_B_SIZE.x, MATRIX_B_SIZE.y);
 
     /// Check if matrices can be multiplied together
     /// Matrix A Y and Matrix B X must match
-    if ( matrixASize.y != matrixBSize.x ) {
+    if ( MATRIX_A_SIZE.y == MATRIX_B_SIZE.x || MATRIX_A_SIZE.x == MATRIX_B_SIZE.y ) {
+       printf("Able to multiply a %dx%d and %dx%d matrices\n", MATRIX_A_SIZE.x, MATRIX_A_SIZE.y, MATRIX_B_SIZE.x, MATRIX_B_SIZE.y);
+    } else {
         printf("Cannot multiply matrices, sorry ;( \n");
         cleanup();
         return 0;
@@ -80,14 +80,24 @@ int main (int argc, char* argv[]) {
     /// matrices can be multiplied, go ahead
 
     /// Set shape of final matrix (outside matrix numbers)
-    Z_X = matrixASize.x;
-    Z_Y = matrixBSize.y;
+    if ( MATRIX_A_SIZE.y == MATRIX_B_SIZE.x ) {
+        MATRIX_Z_SIZE.x = MATRIX_A_SIZE.y;
+        MATRIX_Z_SIZE.y = MATRIX_B_SIZE.x;
+    }
+    else if ( MATRIX_A_SIZE.x == MATRIX_B_SIZE.y ) {
+        MATRIX_Z_SIZE.x = MATRIX_B_SIZE.y;
+        MATRIX_Z_SIZE.y = MATRIX_A_SIZE.x;
+    } else {
+        printf("Oh no, unexpected.\n");
+        cleanup();
+        return 0;
+    }
 
     /// Initialize final matrix for inserting calculations
-    MATRIX_Z = (int*)malloc( sizeof(int) * Z_X * Z_Y);
+    MATRIX_Z = (int*)malloc( sizeof(int) * MATRIX_Z_SIZE.x * MATRIX_Z_SIZE.y);
     
     /// Use one thread per value to calculate
-    int threadCount = Z_X * Z_Y;
+    int threadCount = MATRIX_Z_SIZE.x * MATRIX_Z_SIZE.y;
     /// Create and store array of threads used for pthreads
     pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
     
@@ -100,16 +110,16 @@ int main (int argc, char* argv[]) {
         }
     }
 
-    printf("Created %d threads to create a %d by %d matrix\n", threadCount, Z_X, Z_Y);
+    printf("Created %d threads to create a %d by %d matrix\n", threadCount, MATRIX_Z_SIZE.x, MATRIX_Z_SIZE.y);
 
     /// Await the threads to finish calculations
     for (int i = 0; i < threadCount; i++) {
-        pthread_join( threadIds[i], NULL);
+        pthread_join( threadIds[i], NULL );
     }
     
     printf("Result of Matrix A * Matrix B =\n");
     printf("Matrix Z:\n");
-    printMatrix(MATRIX_Z, Z_X, Z_Y);
+    printMatrix(MATRIX_Z, MATRIX_Z_SIZE.x, MATRIX_Z_SIZE.y);
     
     cleanup();
     return 0;
@@ -199,23 +209,38 @@ void* calculate (void* param) {
     int* cellIndex = (int*)param;
     
     // Figure out column from modulus of final matrix Y size
-    int col = *cellIndex % Z_X;
+    int row = *cellIndex % MATRIX_Z_SIZE.x;
     // Figure out which row by dividing by final matrix X size
-    int row = (*cellIndex - row) / Z_Y;
+    int col = (*cellIndex - col) / MATRIX_Z_SIZE.y;
     
-    //printf("Threads id %ld using row %d and col %d from index %d\n", pthread_self(), row, col, *cellIndex);
-    
-    if (row >= Z_X || row >= Z_Y) {
-        printf("Too many threads");
+    if ( row >= MATRIX_Z_SIZE.x || col >= MATRIX_Z_SIZE.y ) {
+        //printf("Too many threads\n");
         return 0;
     }
 
+    printf("Thread %d calculating [%d][%d]\n", *cellIndex, row, col);
+   
     // Work out total of multiplication by accessing row of Matrix A and
     // column of Matrix B
     int total = 0;
-    for (int i = 0; i < Z_Y; i++) {
-        int aVal = MATRIX_A[ row + i * Z_X ];
-        int bVal = MATRIX_B[ i + col * Z_Y ];
+    for (int i = 0; i < MATRIX_A_SIZE.x; i++) {
+        int mtxAThisIndex = row + i * MATRIX_Z_SIZE.x;
+        int mtxBThisIndex = i + col * MATRIX_Z_SIZE.y;
+
+        // int aRow = i % MATRIX_A_SIZE.x;
+        // int aCol = (i - aRow) / MATRIX_A_SIZE.y;
+        // if ( aRow > MATRIX_A_SIZE.x || aCol > MATRIX_A_SIZE.y ) {
+        //     continue;
+        // }
+
+        // int bRow = i % MATRIX_B_SIZE.x;
+        // int bCol = (i - bRow) / MATRIX_B_SIZE.y;
+        // if ( bRow > MATRIX_B_SIZE.x || bCol > MATRIX_B_SIZE.y ) {
+        //     continue;
+        // }
+
+        int aVal = MATRIX_A[ mtxAThisIndex ];
+        int bVal = MATRIX_B[ mtxBThisIndex ];
         total += aVal * bVal;
     }
     
@@ -226,12 +251,17 @@ void* calculate (void* param) {
 }
 
 /* 
-* Prints out athe matrix array to the console with it's indexes and it's values 
+* Prints out the matrix array to the console with it's indexes and it's values 
 */
 void printMatrix (int* matrix, int xCount, int yCount) {
-    for (int i = 0; i < xCount; i++) {
-        for(int j = 0; j < yCount; j++) {
-            printf("%d    ", *(matrix + (i * yCount) + j));
+    for (int i = 0; i < yCount; i++) {
+        for(int j = 0; j < xCount; j++) {
+            printf("%d", *(matrix + (i * xCount) + j));
+
+            /// Print white space if not reached final column
+            if ( j < xCount - 1 ) {
+                printf("    ");
+            }
         }
         printf("\n");
     }
