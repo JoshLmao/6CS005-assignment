@@ -24,6 +24,12 @@ int* MATRIX_B;
 /// Pointer to final matrix
 int* MATRIX_Z;
 
+struct ThreadArgs {
+    /// Number
+    int threadIndex;
+    int dotProductCount;
+};
+
 struct MatrixSize getMatrixFileSize (char * fileName);
 int * loadMatrixFromFile(char * fileName, struct MatrixSize size);
 void printMatrix(int* matrix, int xCount, int yCount);
@@ -69,7 +75,7 @@ int main (int argc, char* argv[]) {
 
     /// Check if matrices can be multiplied together
     /// Matrix A Y and Matrix B X must match
-    if ( MATRIX_A_SIZE.y == MATRIX_B_SIZE.x || MATRIX_A_SIZE.x == MATRIX_B_SIZE.y ) {
+    if ( MATRIX_A_SIZE.y == MATRIX_B_SIZE.x ) {
        printf("Able to multiply a %dx%d and %dx%d matrices\n", MATRIX_A_SIZE.x, MATRIX_A_SIZE.y, MATRIX_B_SIZE.x, MATRIX_B_SIZE.y);
     } else {
         printf("Cannot multiply matrices, sorry ;( \n");
@@ -80,18 +86,8 @@ int main (int argc, char* argv[]) {
     /// matrices can be multiplied, go ahead
 
     /// Set shape of final matrix (outside matrix numbers)
-    if ( MATRIX_A_SIZE.y == MATRIX_B_SIZE.x ) {
-        MATRIX_Z_SIZE.x = MATRIX_A_SIZE.y;
-        MATRIX_Z_SIZE.y = MATRIX_B_SIZE.x;
-    }
-    else if ( MATRIX_A_SIZE.x == MATRIX_B_SIZE.y ) {
-        MATRIX_Z_SIZE.x = MATRIX_B_SIZE.y;
-        MATRIX_Z_SIZE.y = MATRIX_A_SIZE.x;
-    } else {
-        printf("Oh no, unexpected.\n");
-        cleanup();
-        return 0;
-    }
+    MATRIX_Z_SIZE.x = MATRIX_A_SIZE.x;
+    MATRIX_Z_SIZE.y = MATRIX_B_SIZE.y;
 
     /// Initialize final matrix for inserting calculations
     MATRIX_Z = (int*)malloc( sizeof(int) * MATRIX_Z_SIZE.x * MATRIX_Z_SIZE.y);
@@ -102,11 +98,15 @@ int main (int argc, char* argv[]) {
     pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
     
     for (int i = 0; i < threadCount; i++) {
-        int *arg = malloc(sizeof(*arg));
-        if (arg != NULL) 
+        struct ThreadArgs *args = malloc(sizeof(*args));
+        if (args != NULL) 
         {
-            *arg = i;
-            pthread_create( &threadIds[i], NULL, calculate, arg);
+            /// Send final matrix array index as threadIndex
+            args->threadIndex = i;
+            /// Amount of values needed to make the dot product
+            /// which is equal to Matrix A columns or Matrix B rows
+            args->dotProductCount = MATRIX_A_SIZE.y;
+            pthread_create( &threadIds[i], NULL, calculate, args);
         }
     }
 
@@ -184,15 +184,15 @@ struct MatrixSize getMatrixFileSize (char * fileName) {
     /// Iterate through file counting X and Y either by white space or new line
     char c;
     /// Start Y at 1 since file exists and starting on first line
-    size.y = 1;
+    size.x = 1;
     for ( c = getc(filePtr); c != EOF; c = getc(filePtr) ) {
         /// Increment Y size on new line
         if ( c == '\n' ) {
-            size.y++;
+            size.x++;
         }
         /// Only count X size during first line
-        if (size.y == 1 && c != ' ') {
-            size.x++;
+        if (size.x == 1 && c != ' ') {
+            size.y++;
         }
     }
 
@@ -205,61 +205,50 @@ struct MatrixSize getMatrixFileSize (char * fileName) {
 * Muiltiplies the MATRIX_A and MATRIX_B position
 */
 void* calculate (void* param) {
-    // Get final matrix cell index from param
-    int* cellIndex = (int*)param;
+    /// Convert the void pointer to our struct
+    struct ThreadArgs* args = (struct ThreadArgs*)param;
     
-    // Figure out column from modulus of final matrix Y size
-    int row = *cellIndex % MATRIX_Z_SIZE.x;
-    // Figure out which row by dividing by final matrix X size
-    int col = (*cellIndex - col) / MATRIX_Z_SIZE.y;
+    int index = args->threadIndex;
+
+    /// Determine current column and row index for Matrix A and B to create Dot product
+    int col = index % MATRIX_Z_SIZE.x;
+    int row = (index - col) / MATRIX_Z_SIZE.y;
     
+    /// Check we are within bounds of final matrix
     if ( row >= MATRIX_Z_SIZE.x || col >= MATRIX_Z_SIZE.y ) {
         //printf("Too many threads\n");
         return 0;
     }
 
-    printf("Thread %d calculating [%d][%d]\n", *cellIndex, row, col);
-   
-    // Work out total of multiplication by accessing row of Matrix A and
-    // column of Matrix B
+    /// Work out total of multiplication by accessing row of Matrix A and column of Matrix B
     int total = 0;
-    for (int i = 0; i < MATRIX_A_SIZE.x; i++) {
-        int mtxAThisIndex = row + i * MATRIX_Z_SIZE.x;
-        int mtxBThisIndex = i + col * MATRIX_Z_SIZE.y;
+    for (int i = 0; i < args->dotProductCount; i++) {
+        /// Find A and B positions
+        int mtxAThisIndex = (row * (MATRIX_A_SIZE.x - 1)) + i;
+        int mtxBThisIndex = (i * MATRIX_B_SIZE.y) + col;
 
-        // int aRow = i % MATRIX_A_SIZE.x;
-        // int aCol = (i - aRow) / MATRIX_A_SIZE.y;
-        // if ( aRow > MATRIX_A_SIZE.x || aCol > MATRIX_A_SIZE.y ) {
-        //     continue;
-        // }
-
-        // int bRow = i % MATRIX_B_SIZE.x;
-        // int bCol = (i - bRow) / MATRIX_B_SIZE.y;
-        // if ( bRow > MATRIX_B_SIZE.x || bCol > MATRIX_B_SIZE.y ) {
-        //     continue;
-        // }
-
+        // Finally multiply and add to cumulative total
         int aVal = MATRIX_A[ mtxAThisIndex ];
         int bVal = MATRIX_B[ mtxBThisIndex ];
         total += aVal * bVal;
     }
-    
-    //printf("Value at row %d col %d is is %d\n", row, col, total);
 
     /// Insert value into final matrix
-    *(MATRIX_Z + *cellIndex) = total;
+    *(MATRIX_Z + args->threadIndex) = total;
+
+    return NULL;
 }
 
 /* 
 * Prints out the matrix array to the console with it's indexes and it's values 
 */
 void printMatrix (int* matrix, int xCount, int yCount) {
-    for (int i = 0; i < yCount; i++) {
-        for(int j = 0; j < xCount; j++) {
-            printf("%d", *(matrix + (i * xCount) + j));
+    for (int i = 0; i < xCount; i++) {
+        for(int j = 0; j < yCount; j++) {
+            printf("%d", *(matrix + (i * yCount) + j));
 
             /// Print white space if not reached final column
-            if ( j < xCount - 1 ) {
+            if ( j < yCount - 1 ) {
                 printf("    ");
             }
         }
