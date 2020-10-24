@@ -137,7 +137,7 @@ struct Matrix* loadFromFile (char * fileName) {
                 int index = (currentMatrixCurrentLineCount * currentMatrixSize->y) + i;
                 currentMatrixValues[index] = values[i];
 
-                printf("Line %d: values[%d] = %lf\n", currentMatrixCurrentLineCount, i, values[i]);
+                printf("values[%d][%d] = %lf\n", currentMatrixCurrentLineCount, i, values[i]);
             }
             currentMatrixCurrentLineCount++;
 
@@ -147,7 +147,8 @@ struct Matrix* loadFromFile (char * fileName) {
         }
     }
     /// Reached end of file
-    printf("REACHED EOF\n");
+    //printf("Reached EOF\n");
+
     /// Final increment of matrixCount and insert final values
     struct Matrix thisMatrix;
     thisMatrix.values = currentMatrixValues;
@@ -167,14 +168,16 @@ struct Matrix* loadFromFile (char * fileName) {
 
 int main()
 {
-    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/test/text.txt";
+    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/test-mtx-file.txt";
 
     struct Matrix* Matrices;
     int totalMatrixCount = getFileMatrixCount(filePath);
     Matrices = loadFromFile(filePath);
 
     for (int i = 0; i < totalMatrixCount; i++) {
-        printf("Matrix[%d] is dimension %dx%d\n", i, Matrices[i].size.x, Matrices[i].size.y);
+        printf("Matrix[%d] has dimension %dx%d\n", i, Matrices[i].size.x, Matrices[i].size.y);
     }
+
+    printf("Total of '%d' matrices!", totalMatrixCount);
 }
 
