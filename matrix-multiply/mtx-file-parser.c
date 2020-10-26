@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 256
 
 struct MatrixSize {
     int x;
@@ -14,30 +14,56 @@ struct Matrix {
     double* values;
 };
 
-int charArrayIsMatrixSize (char * chars, int size) {
-    for (int i = 0; i < BUFFER_SIZE; i++) {
-        // Check for x char
-        if (chars[i] == 'x') {
-            return 1;
+/*
+* Checks if the char array line is the matrix definition line and returns the size is true
+* (AxB where A and B is the matrix size)
+*/
+struct MatrixSize* charArrayIsMatrixSize (char * chars, int size) {
+    struct MatrixSize* mtxSize = malloc ( sizeof(struct MatrixSize ) );
+    int splitCount = 0;
+
+    char* split = strtok(chars, ",");
+    while (split != NULL) {
+        double parsed = atof(split);
+        if ( parsed > 0 ) 
+        {
+            if (splitCount == 0) {
+                mtxSize->x = parsed;
+            } else if (splitCount == 1) {
+                mtxSize->y = parsed;
+            } else {
+                // More commas than expected. Is a matrix value line
+                return NULL;
+            }
+
+            // increment split count when value is found
+            splitCount++;
         }
-        // Check if reached end of line
-        if (chars[i] == '\n') {
-            return 0;
-        }
+
+        // Move split onto next split index
+        split = strtok(NULL, ",");
     }
-    return 0;
+
+    return mtxSize;
 }
 
+/*
+* Checks if the first character in the array is blank or new line
+*/
 int charArrayIsBlank (char * chars, int size) {
     return chars[0] == '\n';
 }
 
+/*
+* Parses a matrix line of doubles separated with commas
+*/
 double* parseLineOfDoubles(char* lineChars, struct MatrixSize mtxSize) {
     double* lineVals = malloc (sizeof(double) * mtxSize.y);
     int lineYCount = 0;
 
-    char* split = strtok(lineChars, ",");
-    while (split != NULL) {
+    const char splitter[2] = ",";
+    char* split = strtok(lineChars, splitter);
+    while (split) {
         double parsed = atof(split);
         if ( parsed > 0 ) {
             lineVals[lineYCount] = parsed;
@@ -45,12 +71,15 @@ double* parseLineOfDoubles(char* lineChars, struct MatrixSize mtxSize) {
         }
 
         // Move split onto next split index
-        split = strtok(NULL, ",");
+        split = strtok(NULL, splitter);
     }
 
     return lineVals;
 }
 
+/*
+* Gets the total matrices in the specified file format
+*/
 int getFileMatrixCount(char* fileName) {
     FILE * filePtr;
     filePtr = fopen(fileName, "r");
@@ -73,6 +102,9 @@ int getFileMatrixCount(char* fileName) {
     return matrixCount;
 }
 
+/*
+* Loads all matrices in a file in the specified format and returns array of struct Matrix's
+*/
 struct Matrix* loadFromFile (char * fileName) {
     /// Check file name isn't blank
     if (!fileName) {
@@ -95,23 +127,24 @@ struct Matrix* loadFromFile (char * fileName) {
     /// All matrices in the file
     struct Matrix* matrices = malloc( sizeof(struct Matrix) * totalMatrixCount );
 
-    struct MatrixSize* currentMatrixSize;
+    struct MatrixSize* currentMatrixSize = malloc(sizeof(struct MatrixSize*));
+    currentMatrixSize->x = currentMatrixSize-> y = 0;
+
     double* currentMatrixValues = NULL;
     int currentMatrixCount = 0;
     int currentMatrixCurrentLineCount = 0;
 
-    char readBuffer[BUFFER_SIZE];
+    char* readBuffer = malloc(sizeof(char) * BUFFER_SIZE);
     while ( fgets(readBuffer, BUFFER_SIZE, filePtr) != NULL ) {
-        if (charArrayIsMatrixSize(readBuffer, BUFFER_SIZE) > 0) {
+        struct MatrixSize* mtxSize = charArrayIsMatrixSize(readBuffer, BUFFER_SIZE);
+        if ( mtxSize != NULL && currentMatrixSize->x == 0 && currentMatrixSize->y == 0 ) {
             /// Parse X by Y matrix value line
-            currentMatrixSize = malloc( sizeof(struct MatrixSize) );
-            currentMatrixSize->x = atoi(&readBuffer[0]);
-            currentMatrixSize->y = atoi(&readBuffer[2]);
+            currentMatrixSize = mtxSize;
 
             printf("Matrix %d %dx%d\n", currentMatrixCount, currentMatrixSize->x, currentMatrixSize->y);
         } else if ( charArrayIsBlank(readBuffer, BUFFER_SIZE) > 0 ) {
             /// blank line, end of parsing this matrix
-            printf("FINISHED PARSING MATRIX\n");
+            printf("Finished parsing matrix\n");
             
             struct Matrix thisMatrix;
             thisMatrix.values = currentMatrixValues;
@@ -140,10 +173,6 @@ struct Matrix* loadFromFile (char * fileName) {
                 printf("values[%d][%d] = %lf\n", currentMatrixCurrentLineCount, i, values[i]);
             }
             currentMatrixCurrentLineCount++;
-
-            // for(int i = 0; i < currentMatrixSize->y; i++) {
-            //     printf("values[%d] = %lf\n", i, values[i]);
-            // }
         }
     }
     /// Reached end of file
@@ -168,7 +197,7 @@ struct Matrix* loadFromFile (char * fileName) {
 
 int main()
 {
-    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/test-mtx-file.txt";
+    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrices-final.txt";
 
     struct Matrix* Matrices;
     int totalMatrixCount = getFileMatrixCount(filePath);
