@@ -22,7 +22,12 @@ struct MatrixSize* charArrayIsMatrixSize (char * chars, int size) {
     struct MatrixSize* mtxSize = malloc ( sizeof(struct MatrixSize ) );
     int splitCount = 0;
 
-    char* split = strtok(chars, ",");
+    // make copy of chars and test it
+    // storing in temp to not add delimiters in original char array
+    char temp[BUFFER_SIZE];
+    strcpy(temp, chars);
+
+    char* split = strtok(temp, ",");
     while (split != NULL) {
         double parsed = atof(split);
         if ( parsed > 0 ) 
@@ -134,7 +139,7 @@ struct Matrix* loadFromFile (char * fileName) {
     int currentMatrixCount = 0;
     int currentMatrixCurrentLineCount = 0;
 
-    char* readBuffer = malloc(sizeof(char) * BUFFER_SIZE);
+    char readBuffer[BUFFER_SIZE];
     while ( fgets(readBuffer, BUFFER_SIZE, filePtr) != NULL ) {
         struct MatrixSize* mtxSize = charArrayIsMatrixSize(readBuffer, BUFFER_SIZE);
         if ( mtxSize != NULL && currentMatrixSize->x == 0 && currentMatrixSize->y == 0 ) {
