@@ -160,9 +160,12 @@ struct Matrix* loadFromFile (char * fileName) {
             // Increment matrix count & parse new matrix
             currentMatrixCount++;
 
+            // Reset vars that store data for next matrix
             currentMatrixCurrentLineCount = 0;
+            currentMatrixSize->x = currentMatrixSize->y = 0;
+            // free previous matrix vals before disposal
+            free(currentMatrixValues);
             currentMatrixValues = NULL;
-
         } else {
             /// On a new matrix, malloc new set of values, length of Y
             if (currentMatrixValues == NULL) {
