@@ -2,239 +2,154 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include "mtx-file-handler.c"
 
-struct MatrixSize {
-    /// X dimension of a mtrix
-    int x;
-    /// X dimension of a matrix
-    int y;
-};
-
-/// size of Matrix A
-struct MatrixSize MATRIX_A_SIZE;
-/// size of Matrix B
-struct MatrixSize MATRIX_B_SIZE;
-// Final matrix dimensions are Y size of matrix A by X size of matrix B
-struct MatrixSize MATRIX_Z_SIZE;
-
-/// Pointer to MATRIX_A with row length of A_X, col length of A_Y
-int* MATRIX_A;
-/// Pointer to MATRIX_B with row length of B_X, col length of B_Y
-int* MATRIX_B;
-/// Pointer to final matrix
-int* MATRIX_Z;
+/// All loaded matrices in the parsed file
+struct Matrix** Matrices;
 
 struct ThreadArgs {
-    /// Number
+    /// Current thread index number
     int threadIndex;
+    /// Amount to iterate over
     int dotProductCount;
+    /// Final matrix info
+    struct Matrix* resultMatrixInfo;
+    /// All Matrix A values
+    double* matrixAValues;
+    /// All Matrix B values
+    double* matrixBValues;
 };
 
-struct MatrixSize getMatrixFileSize (char * fileName);
-int * loadMatrixFromFile(char * fileName, struct MatrixSize size);
-void printMatrix(int* matrix, int xCount, int yCount);
-void populateMatrix(int* matrix, int xCount, int yCount);
+/// Define functions
+void printMatrix(double* matrix, int xCount, int yCount);
 void* calculate(void* param);
-void cleanup();
+int canMultiplyMatrices(struct Matrix a, struct Matrix b);
 
 /*
-*   Accepts two file paths as command line args. Must be full paths to the files that
-*   contain matrices. Files should be numbers separated by spaces and new lines to
-*   define it's X and Y
+*  Takes a single file path argument pointing to a file in the specified format
 */
 int main (int argc, char* argv[]) {
 
-    /// Load matrices from file paths from arguments
-    char * matrixAFile = "./matrixA.txt";
-    if (argc >= 1) {
-        matrixAFile = argv[1];
-    }
-    char * matrixBFile = "./matrixB.txt";
-    if (argc >= 2) {
-        matrixBFile = argv[2];
-    }
+    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrices-final.txt";
+    char* outputFilePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrices-output.txt";
 
-    /// Determine matrix sizes of files
-    MATRIX_A_SIZE = getMatrixFileSize(matrixAFile);
-    MATRIX_B_SIZE = getMatrixFileSize(matrixBFile);
+    /// Parses matrices file and loads into memory
+    int totalMatrixCount = getFileMatrixCount(filePath);
+    Matrices = loadFromFile(filePath);
 
-    /// Load specified files and check they are valid
-    MATRIX_A = loadMatrixFromFile(matrixAFile, MATRIX_A_SIZE);
-    MATRIX_B = loadMatrixFromFile(matrixBFile, MATRIX_B_SIZE);
-
-    if ( MATRIX_A == NULL || MATRIX_B == NULL ) {
-        printf("Unable to load one or both of the specified files.\n");
-        return 0;
-    }
-
-    /// Print out loaded A and B matrices
-    printf("Matrix A:\n");
-    printMatrix(MATRIX_A, MATRIX_A_SIZE.x, MATRIX_A_SIZE.y);
-    printf("Matrix B:\n");
-    printMatrix(MATRIX_B, MATRIX_B_SIZE.x, MATRIX_B_SIZE.y);
-
-    /// Check if matrices can be multiplied together
-    /// Matrix A Y and Matrix B X must match
-    if ( MATRIX_A_SIZE.y == MATRIX_B_SIZE.x ) {
-       printf("Able to multiply a %dx%d and %dx%d matrices\n", MATRIX_A_SIZE.x, MATRIX_A_SIZE.y, MATRIX_B_SIZE.x, MATRIX_B_SIZE.y);
-    } else {
-        printf("Cannot multiply matrices, sorry ;( \n");
-        cleanup();
-        return 0;
-    }
-
-    /// matrices can be multiplied, go ahead
-
-    /// Set shape of final matrix (outside matrix numbers)
-    MATRIX_Z_SIZE.x = MATRIX_A_SIZE.x;
-    MATRIX_Z_SIZE.y = MATRIX_B_SIZE.y;
-
-    /// Initialize final matrix for inserting calculations
-    MATRIX_Z = (int*)malloc( sizeof(int) * MATRIX_Z_SIZE.x * MATRIX_Z_SIZE.y);
+    printf("Successfully loaded '%d' matrices from file '%s'\n", totalMatrixCount, filePath);
     
-    /// Use one thread per value to calculate
-    int threadCount = MATRIX_Z_SIZE.x * MATRIX_Z_SIZE.y;
-    /// Create and store array of threads used for pthreads
-    pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
-    
-    for (int i = 0; i < threadCount; i++) {
-        struct ThreadArgs *args = malloc(sizeof(*args));
-        if (args != NULL) 
+    /// Print out loaded matrices and their values
+    // for(int i = 0; i < totalMatrixCount; i++) {
+    //     printf("Matrix '%d' = %dx%d\n", i, Matrices[i]->size.x, Matrices[i]->size.y);
+    //     printMatrix(Matrices[i]->values, Matrices[i]->size.x, Matrices[i]->size.y);
+    // }
+
+    /// Loop over matrices and perform multiplication
+    for (int i = 0; i < totalMatrixCount; i += 2) {
+        struct Matrix matrixA = *(Matrices[i]);
+        struct Matrix matrixB = *(Matrices[i + 1]);
+
+        printf("Matrix A:\n");
+        printMatrix(matrixA.values, matrixA.size.x, matrixA.size.y);
+
+        printf("Matrix B:\n");
+        printMatrix(matrixB.values, matrixB.size.x, matrixB.size.y);
+
+        struct Matrix* resultMatrix = malloc( sizeof(struct Matrix) );
+        resultMatrix->size.x = matrixA.size.x;
+        resultMatrix->size.y = matrixB.size.y;
+
+        // Set memory for final matrix values
+        resultMatrix->values = malloc( sizeof(double) * resultMatrix->size.x * resultMatrix->size.y );
+
+        // Check if matrixA and matrixB can be multiplied together
+        int canMultiply = canMultiplyMatrices(matrixA, matrixB);
+        if (canMultiply == 1) 
         {
-            /// Send final matrix array index as threadIndex
-            args->threadIndex = i;
-            /// Amount of values needed to make the dot product
-            /// which is equal to Matrix A columns or Matrix B rows
-            args->dotProductCount = MATRIX_A_SIZE.y;
-            pthread_create( &threadIds[i], NULL, calculate, args);
+            /// Use one thread per value to calculate
+            int threadCount = resultMatrix->size.x * resultMatrix->size.y;
+            /// Create and store array of threads used for pthreads
+            pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
+            
+            for (int i = 0; i < threadCount; i++) {
+                struct ThreadArgs *args = malloc(sizeof(*args));
+                if (args != NULL) 
+                {
+                    /// Send final matrix array index as threadIndex
+                    args->threadIndex = i;
+                    /// Amount of values needed to make the dot product
+                    /// which is equal to Matrix A columns or Matrix B rows
+                    args->dotProductCount = resultMatrix->size.y;
+
+                    // Set result matrix ptr & matrix a and b pointers
+                    args->resultMatrixInfo = resultMatrix;
+                    args->matrixAValues = matrixA.values;
+                    args->matrixBValues = matrixB.values;
+
+                    pthread_create( &threadIds[i], NULL, calculate, args);
+                }
+            }
+
+            printf("Created %d threads to create a %d by %d matrix\n", threadCount, resultMatrix->size.x, resultMatrix->size.y);
+
+            /// Await the threads to finish calculations
+            for (int i = 0; i < threadCount; i++) {
+                pthread_join( threadIds[i], NULL );
+            }
+            
+            printf("Result of Matrix[%d] * Matrix[%d] =\n", i, i + 1);
+            printf("Result Matrix:\n");
+            printMatrix(resultMatrix->values, resultMatrix->size.x, resultMatrix->size.y);
         }
-    }
+        else 
+        {
+            // Unable to multiply, dump info to console
+            printf("Unable to multiply Matrices[%d] '%dx%d' and  Matrices[%d] '%dx%d'\n", i, matrixA.size.x, matrixA.size.y, i + 1, matrixB.size.x, matrixB.size.y);
+        }
 
-    printf("Created %d threads to create a %d by %d matrix\n", threadCount, MATRIX_Z_SIZE.x, MATRIX_Z_SIZE.y);
-
-    /// Await the threads to finish calculations
-    for (int i = 0; i < threadCount; i++) {
-        pthread_join( threadIds[i], NULL );
+        // Clean up malloc
+        free(resultMatrix->values);
     }
-    
-    printf("Result of Matrix A * Matrix B =\n");
-    printf("Matrix Z:\n");
-    printMatrix(MATRIX_Z, MATRIX_Z_SIZE.x, MATRIX_Z_SIZE.y);
-    
-    cleanup();
     return 0;
 }
 
 /*
-* Loads a matrix from a file and returns a 2x2 array of the matrix.
-* Can return null if no file is found or able to be loaded
-*/
-int * loadMatrixFromFile (char * fileName, struct MatrixSize size) {
-    /// Check file name isn't blank
-    if (!fileName) {
-        printf("Unable to find file '%s'\n", fileName);
-        return NULL;
-    }
-
-    /// Open reference to the file
-    FILE * filePtr;
-    filePtr = fopen(fileName, "r");
-    if (filePtr == NULL) {
-        printf("Unable to load file '%s'\n", fileName);
-        return NULL;
-    }
-
-    /// Malloc appropriate matrix once size is known
-    int * matrix = malloc ( sizeof(int) * size.x * size.y );
-
-    int currentMatrixIndex = 0;
-    char c;
-    for ( c = getc(filePtr); c != EOF; c = getc(filePtr) ) {
-        int currentVal = 0;
-
-        /// Determine if char is a number
-        if ( c != ' ' && c != '\n') {
-            currentVal = atoi(&c);
-            matrix[currentMatrixIndex] = currentVal;
-
-            /// Increment index once found
-            currentMatrixIndex++;
-        }
-    }
-
-    /// Close and return matrix
-    fclose(filePtr);
-    return matrix;
-}
-
-/*
-* Gets the Matrix size of the file. Can return blank struct if no file found
-*/
-struct MatrixSize getMatrixFileSize (char * fileName) {
-    struct MatrixSize size;
-    size.x = 0;
-    size.y = 0;
-    
-    /// Open a pointer and check its valid
-    FILE * filePtr = fopen(fileName, "r");
-    if (filePtr == NULL) {
-        return size;
-    }
-    
-    /// Iterate through file counting X and Y either by white space or new line
-    char c;
-    /// Start Y at 1 since file exists and starting on first line
-    size.x = 1;
-    for ( c = getc(filePtr); c != EOF; c = getc(filePtr) ) {
-        /// Increment Y size on new line
-        if ( c == '\n' ) {
-            size.x++;
-        }
-        /// Only count X size during first line
-        if (size.x == 1 && c != ' ') {
-            size.y++;
-        }
-    }
-
-    // Close file pointer and return size
-    fclose(filePtr);
-    return size;
-}
-
-/*
-* Muiltiplies the MATRIX_A and MATRIX_B position
+* Muiltiplies matrices passed by ThreadArgs struct
 */
 void* calculate (void* param) {
     /// Convert the void pointer to our struct
     struct ThreadArgs* args = (struct ThreadArgs*)param;
     
+    struct MatrixSize resultMatrixSize = args->resultMatrixInfo->size;
     int index = args->threadIndex;
 
     /// Determine current column and row index for Matrix A and B to create Dot product
-    int col = index % MATRIX_Z_SIZE.x;
-    int row = (index - col) / MATRIX_Z_SIZE.y;
+    int col = index %  resultMatrixSize.x;
+    int row = (index - col) / resultMatrixSize.y;
     
     /// Check we are within bounds of final matrix
-    if ( row >= MATRIX_Z_SIZE.x || col >= MATRIX_Z_SIZE.y ) {
+    if ( row >= resultMatrixSize.x || col >= resultMatrixSize.y ) {
         //printf("Too many threads\n");
         return 0;
     }
 
     /// Work out total of multiplication by accessing row of Matrix A and column of Matrix B
-    int total = 0;
+    double total = 0;
     for (int i = 0; i < args->dotProductCount; i++) {
         /// Find A and B positions
-        int mtxAThisIndex = (row * (MATRIX_A_SIZE.x - 1)) + i;
-        int mtxBThisIndex = (i * MATRIX_B_SIZE.y) + col;
+        int mtxAThisIndex = (row * (resultMatrixSize.x - 1)) + i;
+        int mtxBThisIndex = (i * resultMatrixSize.y) + col;
 
         // Finally multiply and add to cumulative total
-        int aVal = MATRIX_A[ mtxAThisIndex ];
-        int bVal = MATRIX_B[ mtxBThisIndex ];
+        double aVal = args->matrixAValues[ mtxAThisIndex ];
+        double bVal = args->matrixBValues[ mtxBThisIndex ];
         total += aVal * bVal;
     }
 
     /// Insert value into final matrix
-    *(MATRIX_Z + args->threadIndex) = total;
+    args->resultMatrixInfo->values[args->threadIndex] = total;
+    //*(MATRIX_Z + args->threadIndex) = total;
 
     return NULL;
 }
@@ -242,10 +157,10 @@ void* calculate (void* param) {
 /* 
 * Prints out the matrix array to the console with it's indexes and it's values 
 */
-void printMatrix (int* matrix, int xCount, int yCount) {
+void printMatrix (double* matrix, int xCount, int yCount) {
     for (int i = 0; i < xCount; i++) {
         for(int j = 0; j < yCount; j++) {
-            printf("%d", *(matrix + (i * yCount) + j));
+            printf("%f", *(matrix + (i * yCount) + j));
 
             /// Print white space if not reached final column
             if ( j < yCount - 1 ) {
@@ -256,20 +171,14 @@ void printMatrix (int* matrix, int xCount, int yCount) {
     }
 }
 
-/* 
-* Populates a matrix with random numbers inbetween 20
-*/
-void populateMatrix (int* matrix, int xCount, int yCount) {
-    for (int i = 0; i < xCount * yCount; i++) {
-        *(matrix + i) = rand() % 20; //i;
-    }
-}
-
 /*
-* Cleans up any malloc'd variables in program
+* Returns true if matrix a can be multiplied against matrix b
 */
-void cleanup() {
-    free(MATRIX_A);
-    free(MATRIX_B);
-    free(MATRIX_Z);
+int canMultiplyMatrices(struct Matrix a, struct Matrix b) {
+    // Only able to multiply if Matrix A Y column count
+    // is equal to MatrixB X row count
+    if (a.size.y == b.size.x) {
+        return 1;
+    }
+    return 0;
 }
