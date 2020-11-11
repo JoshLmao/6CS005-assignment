@@ -30,8 +30,8 @@ int canMultiplyMatrices(struct Matrix a, struct Matrix b);
 */
 int main (int argc, char* argv[]) {
 
-    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrices-final.txt";
-    char* outputFilePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrices-output.txt";
+    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/1700471-matrices.txt";
+    char* outputFilePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrixresults-1700471.txt";
 
     /// Parses matrices file and loads into memory
     int totalMatrixCount = getFileMatrixCount(filePath);
@@ -45,16 +45,22 @@ int main (int argc, char* argv[]) {
     //     printMatrix(Matrices[i]->values, Matrices[i]->size.x, Matrices[i]->size.y);
     // }
 
+    /// Store all resulting matrices in an array
+    struct Matrix** allFinalMatrices = malloc( sizeof(struct Matrix) * totalMatrixCount );
+    int successfulMatrixCount = 0;
+
     /// Loop over matrices and perform multiplication
     for (int i = 0; i < totalMatrixCount; i += 2) {
         struct Matrix matrixA = *(Matrices[i]);
         struct Matrix matrixB = *(Matrices[i + 1]);
 
+        /*
         printf("Matrix A:\n");
         printMatrix(matrixA.values, matrixA.size.x, matrixA.size.y);
 
         printf("Matrix B:\n");
         printMatrix(matrixB.values, matrixB.size.x, matrixB.size.y);
+        */
 
         struct Matrix* resultMatrix = malloc( sizeof(struct Matrix) );
         resultMatrix->size.x = matrixA.size.x;
@@ -73,14 +79,14 @@ int main (int argc, char* argv[]) {
             pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
             
             for (int i = 0; i < threadCount; i++) {
-                struct ThreadArgs *args = malloc(sizeof(*args));
+                struct ThreadArgs *args = malloc(sizeof(struct ThreadArgs));
                 if (args != NULL) 
                 {
                     /// Send final matrix array index as threadIndex
                     args->threadIndex = i;
                     /// Amount of values needed to make the dot product
                     /// which is equal to Matrix A columns or Matrix B rows
-                    args->dotProductCount = resultMatrix->size.y;
+                    args->dotProductCount = matrixA.size.y;
 
                     // Set result matrix ptr & matrix a and b pointers
                     args->resultMatrixInfo = resultMatrix;
@@ -101,16 +107,25 @@ int main (int argc, char* argv[]) {
             printf("Result of Matrix[%d] * Matrix[%d] =\n", i, i + 1);
             printf("Result Matrix:\n");
             printMatrix(resultMatrix->values, resultMatrix->size.x, resultMatrix->size.y);
+
+            allFinalMatrices[successfulMatrixCount] = resultMatrix;
+            successfulMatrixCount++;
         }
         else 
         {
             // Unable to multiply, dump info to console
             printf("Unable to multiply Matrices[%d] '%dx%d' and  Matrices[%d] '%dx%d'\n", i, matrixA.size.x, matrixA.size.y, i + 1, matrixB.size.x, matrixB.size.y);
         }
-
-        // Clean up malloc
-        free(resultMatrix->values);
     }
+
+    /// Output all resulting matrices into the output file
+    int success = saveMatricesToFile(outputFilePath, allFinalMatrices, successfulMatrixCount);
+    if (success == 1) {
+        printf("Successfully saved '%d' matrices into file '%s'\n", successfulMatrixCount, outputFilePath);
+    } else {
+        printf("Unable to save to file '%s'\n", outputFilePath);
+    }
+
     return 0;
 }
 
