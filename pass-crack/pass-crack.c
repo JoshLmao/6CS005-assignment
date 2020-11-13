@@ -5,13 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 
-struct SHAExploded {
-	char* salt;
-	char* second;
-	char* plain;
-	char* checksum;
-};
-
 struct ThreadArgs {
     int threadIndex;
     
@@ -32,7 +25,7 @@ struct ThreadArgs {
 char* FoundPass;
 
 void* Decrypt(void* tArg);
-char* GetSHAPassSalt(char* sha512);
+void substr(char *dest, char *src, int start, int length);
 
 /**
     Decrypts an encrypted SHA512 password in the format "LetterLetterNumberNumber"
@@ -41,13 +34,13 @@ char* GetSHAPassSalt(char* sha512);
 */
 int main(int argc, char* argv[]) {
     /// Set encrypted pass and parse if passed as argument
-    char* encryptedPass = "$6$AS$.PM.QsfUIFitffTV3mHCVh4XhzVPlFpS5GVAw/5RzfC6PSNZWBreqGKFrY28PqXvJ775zWZBuX57FR.efob6j1"; //aa11 encrypted SHA512
+    char* encryptedPass = "$6$AS$wKDMKDtx/s3ILNkNaRNFIM0w81/weD1UZ8daNhbQBXuj8L.7OY4trHnSraeizmFYrMwjlb1uRTPxu20rqhmMn/"; //AA00
     if (argc > 1) {
         encryptedPass = argv[1];
     }
 
 	/// Store pthreads in own array
-    int threadCount = 2;
+    int threadCount = 1;
     pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
     
     /// Iterate over each thread and configure args and create
@@ -75,9 +68,9 @@ int main(int argc, char* argv[]) {
         thisArgs->numStart = 0;
         thisArgs->numEnd = 99;
     
-        printf("Thread '%d' handles 1st char '%c' to '%c'\n", i, thisArgs->firstStartChar, thisArgs->firstEndChar);
-        printf("Thread '%d' handles 2nd char '%c' to '%c'\n", i, thisArgs->secondStartChar, thisArgs->secondEndChar);
+        //printf("T'%d' Args 1: '%c''%c' 2: '%c''%c' Num: '%d''%d'\n", i, thisArgs->firstStartChar, thisArgs->firstEndChar, thisArgs->secondStartChar, thisArgs->secondEndChar, thisArgs->numStart, thisArgs->numEnd);
     
+    	/// Create the thread inside the threadIds array
         pthread_create( &threadIds[i], NULL, Decrypt, thisArgs);
     }
     
@@ -86,24 +79,26 @@ int main(int argc, char* argv[]) {
         pthread_join( threadIds[i], NULL );
     }
     
-    printf("Complete!\n");
+    /// Print out start encrypted and final decrypted pass
+    printf("Completed all threads\n");
     if (FoundPass != NULL) {
-        printf("FoundPass = '%s'\n", FoundPass);
+    	printf("Encrypted Password: '%s'\n", encryptedPass);
+        printf("Decrpyed Password: '%s'\n", FoundPass);
     }
     
     // Free any malloc before exit
-    free(threadIds);
+    free(threadIds);    
 }
 
 void* Decrypt(void* tArg) {
     struct ThreadArgs* args = (struct ThreadArgs*)tArg;    
    
     /// Explode the original SHA512 pass into its parts    
-	char* salt = GetSHAPassSalt(args->encryptedPass);
-	printf("Salt: %s\n", salt);
-    
+    char salt[7];
+    substr(salt, args->encryptedPass, 0, 6);
+    	
     // Max potential is 'zz99' so 4 chars can handle
-    char potentialPass[15]; 
+    char potentialPass[7]; 
     // Store current iteration encrypted
     char* encrypted;
     
@@ -117,26 +112,24 @@ void* Decrypt(void* tArg) {
 				}
 				
 				/// Create string of potential pass from current iteration
-    			sprintf( potentialPass, "%c%c%02d", i, j, k );
+  				sprintf(potentialPass, "%c%c%02d", i, j, k); 
     			
-    			printf("Thread '%d' checking '%s' with salt '%s'\n", args->threadIndex, potentialPass, salt);
-    			
-    			/// Encrypt potential password with the original encrypted pass salt
-    			encrypted = (char*) crypt(potentialPass, salt);
+    			/// Encrypt potential password withc the original encrypted pass salt
+    			encrypted = (char *) crypt(potentialPass, salt);
+    
+    			printf("T'%d' Pass: '%s' '%s'\n", args->threadIndex, potentialPass, encrypted);
     
     			/// Check if current encrypted matches the given encrypted pass
     			if ( strcmp( args->encryptedPass, encrypted ) == 0 ) {
-    				printf( "Password is '%s'!", potentialPass );
+    				printf( "Password is '%s'!\n", potentialPass );
     				
-    				/// Set the pass and exit the thread
-    				FoundPass = potentialPass;
+    				/// Malloc FoundPass to same size as potentialPass
+    				/// Copy and exit
+    				FoundPass = malloc (sizeof(potentialPass));
+    				strcpy(FoundPass, potentialPass);
     				pthread_exit(NULL);
     				
     				return NULL;
-    			}
-    			
-    			if (k > 0) {
-	    			return NULL;
     			}
     		}
     	}
@@ -144,23 +137,9 @@ void* Decrypt(void* tArg) {
 }
 
 /**
-	Explodes a SHA512 encrypted password into it's parts
-	and returns a struct of each part
+	Creates a substring of a string from start index, to the length amount
 */
-char* GetSHAPassSalt(char* sha512) {
-	char* salt;
-	
-	char shaCpy[512];
-	strcpy(shaCpy, sha512);
-	
-	int fullStopCount = 0;
-	
-	char* split = strtok(shaCpy, ".");
-	
-	if (split != NULL) {
-		salt = split;
-	}
-	
-	return salt;
+void substr(char *dest, char *src, int start, int length){
+  memcpy(dest, src + start, length);
+  *(dest + length) = '\0';
 }
-

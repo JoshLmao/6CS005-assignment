@@ -46,8 +46,8 @@ void crack(char *salt_and_encrypted){
 
   substr(salt, salt_and_encrypted, 0, 6);
 
-	printf("%s\n", salt);
-	printf("%s\n", plain);
+	printf("sne: '%s'\n", salt_and_encrypted);
+	//printf("%s\n", plain);
 
   for(x='A'; x<='Z'; x++){
     for(y='A'; y<='Z'; y++){
@@ -68,7 +68,8 @@ void crack(char *salt_and_encrypted){
 }
 
 int main(int argc, char *argv[]){
-  crack("$6$AS$.PM.QsfUIFitffTV3mHCVh4XhzVPlFpS5GVAw/5RzfC6PSNZWBreqGKFrY28PqXvJ775zWZBuX57FR.efob6j1");		//Copy and Paste your ecrypted password here using EncryptShA512 program
+	//AA00
+  crack("$6$AS$wKDMKDtx/s3ILNkNaRNFIM0w81/weD1UZ8daNhbQBXuj8L.7OY4trHnSraeizmFYrMwjlb1uRTPxu20rqhmMn/");		//Copy and Paste your ecrypted password here using EncryptShA512 program
   printf("%d solutions explored\n", count);
 
   return 0;
