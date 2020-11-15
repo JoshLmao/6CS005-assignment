@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <unistd.h>
+#include <crypt.h>
 
 struct ThreadArgs {
     int threadIndex;
@@ -34,15 +35,21 @@ void substr(char *dest, char *src, int start, int length);
 */
 int main(int argc, char* argv[]) {
     /// Set encrypted pass and parse if passed as argument
-    char* encryptedPass = "$6$AS$wKDMKDtx/s3ILNkNaRNFIM0w81/weD1UZ8daNhbQBXuj8L.7OY4trHnSraeizmFYrMwjlb1uRTPxu20rqhmMn/"; //AA00
+    /* 
+    	Encrypted passwords for testing
+    	AA00 = $6$AS$wKDMKDtx/s3ILNkNaRNFIM0w81/weD1UZ8daNhbQBXuj8L.7OY4trHnSraeizmFYrMwjlb1uRTPxu20rqhmMn/
+    	AC05 = $6$AS$xGbvmLMvSO.rAo2XVd7gSXNhyrOv8vNZWcJBQqJxai990EYBzxirCshE2OWfApaSM/dNYaJm7Ttx5VW2slDSj/
+	*/
+	
+    char* encryptedPass = "$6$AS$xGbvmLMvSO.rAo2XVd7gSXNhyrOv8vNZWcJBQqJxai990EYBzxirCshE2OWfApaSM/dNYaJm7Ttx5VW2slDSj/";
     if (argc > 1) {
         encryptedPass = argv[1];
     }
 
 	/// Store pthreads in own array
-    int threadCount = 1;
+    int threadCount = 8;
     pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
-    
+
     /// Iterate over each thread and configure args and create
     for (int i = 0; i < threadCount; i++) {
         struct ThreadArgs* thisArgs = malloc( sizeof(struct ThreadArgs) );
@@ -80,16 +87,22 @@ int main(int argc, char* argv[]) {
     }
     
     /// Print out start encrypted and final decrypted pass
-    printf("Completed all threads\n");
+    //printf("Completed all threads\n");
     if (FoundPass != NULL) {
+    	printf("---\nResults:\n");
     	printf("Encrypted Password: '%s'\n", encryptedPass);
         printf("Decrpyed Password: '%s'\n", FoundPass);
     }
     
     // Free any malloc before exit
-    free(threadIds);    
+    free(threadIds);
+    if(FoundPass != null)
+    	free(FoundPass);
 }
 
+/**
+	Function to split decrypting a password over threads using struct ThreadArgs
+*/
 void* Decrypt(void* tArg) {
     struct ThreadArgs* args = (struct ThreadArgs*)tArg;    
    
@@ -101,6 +114,10 @@ void* Decrypt(void* tArg) {
     char potentialPass[7]; 
     // Store current iteration encrypted
     char* encrypted;
+    
+    // Init crypt_data for thread safe crypt function
+	struct crypt_data data;
+	data.initialized = 0;
     
     for ( int i = args->firstStartChar; i <= args->firstEndChar; i++ ) {
     	for ( int j = args->secondStartChar; j <= args->secondEndChar; j++ ) {
@@ -115,13 +132,14 @@ void* Decrypt(void* tArg) {
   				sprintf(potentialPass, "%c%c%02d", i, j, k); 
     			
     			/// Encrypt potential password withc the original encrypted pass salt
-    			encrypted = (char *) crypt(potentialPass, salt);
+    			encrypted = (char *) crypt_r(potentialPass, salt, &data);
     
+    			/// Print debug/info messages
     			printf("T'%d' Pass: '%s' '%s'\n", args->threadIndex, potentialPass, encrypted);
     
     			/// Check if current encrypted matches the given encrypted pass
     			if ( strcmp( args->encryptedPass, encrypted ) == 0 ) {
-    				printf( "Password is '%s'!\n", potentialPass );
+    				printf( "T'%d' determined password to be '%s'!\n", args->threadIndex, potentialPass );
     				
     				/// Malloc FoundPass to same size as potentialPass
     				/// Copy and exit
