@@ -351,3 +351,6 @@ MigrationBackup/
 
 matrix-multiply/matrix-multiplication
 matrix-multiply/matrix-multiplication.dSYM
+
+
+!*.out
