@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
     }
 
 	/// Store pthreads in own array
-    int threadCount = 8;
+    int threadCount = 2;
     pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
 
     /// Iterate over each thread and configure args and create
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
     
     // Free any malloc before exit
     free(threadIds);
-    if(FoundPass != null)
+    if(FoundPass != NULL)
     	free(FoundPass);
 }
 

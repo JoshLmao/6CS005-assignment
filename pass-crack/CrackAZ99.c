@@ -54,13 +54,13 @@ void crack(char *salt_and_encrypted){
       for(z=0; z<=99; z++){
         sprintf(plain, "%c%c%02d", x, y, z); 
     	
-    	printf("%s\n", plain);
+    	//printf("%s\n", plain);
     	
         enc = (char *) crypt(plain, salt);
         count++;
         if(strcmp(salt_and_encrypted, enc) == 0) {
 		    printf("#%-8d%s %s\n", count, plain, enc);
-			//return;	//uncomment this line if you want to speed-up the running time, program will find you the cracked password only without exploring all possibilites
+			return;	//uncomment this line if you want to speed-up the running time, program will find you the cracked password only without exploring all possibilites
         } 
       }
     }
