@@ -1,11 +1,13 @@
+// Josh Shepherd - 1700471
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-__device__ 
+__device__
 char* CudaCrypt(char* rawPassword) {
 
 	static char newPassword[11]; //use static as a local pointer should not be returned
+	//char* newPassword = (char*)malloc(sizeof(char)*11);
 
 	newPassword[0] = rawPassword[0] + 2;
 	newPassword[1] = rawPassword[0] - 2;
@@ -77,15 +79,12 @@ void decryptPass(char* alphabet, char* numbers, char* encryptedPass, char* devic
 
 	if ( isEncryptedMatching(encryptedPass, encryptedPotential, 11) > 0 )
 	{
-		printf("Matching = '%s'\n", encryptedPotential);
-		for (int i = 0; i < 11; i++ ) {
-			deviceOutputPass[i] = encryptedPotential[i];
+		printf("Encrypted pass '%s' matches potential pass = '%s'\n", encryptedPass, encryptedPotential);
+		for (int i = 0; i < 4; i++ ) {
+			deviceOutputPass[i] = potentialPass[i];
 		}
-		
-		printf("Is it copied? '%s'\n", deviceOutputPass);
 	}
 }
-
 
 /**
 	
@@ -126,25 +125,31 @@ int main(int argc, char** argv) {
 	
 	
 	/// Launch cuda threads and await finish
-	decryptPass<<< dim3(1, 1, 1), dim3(10, 10, 1) >>>(gpuAlphabet, gpuNumbers, gpuEncryptedPass, gpuOutputPass);
+	decryptPass<<< dim3(26, 26, 1), dim3(10, 10, 1) >>>(gpuAlphabet, gpuNumbers, gpuEncryptedPass, gpuOutputPass);
 	cudaDeviceSynchronize();
 	
 	
 	printf("Finished synchronizing CUDA threads\n");
 	/// Copy GPU output pass to the CPU
-	char* cpuOutputPass = (char*)malloc( sizeOfEncryptedPass );
+	char* cpuOutputPass = (char*)malloc( sizeof(char) * 4 );
 	cudaMemcpy(cpuOutputPass, gpuOutputPass, sizeOfEncryptedPass, cudaMemcpyDeviceToHost);
 
 	/// If output pass contained an output, print the results
 	printf("---\n");
 	printf("Results:\n");
 	if (cpuOutputPass != NULL && cpuOutputPass[0] != 0) {
-		printf("Encrypted Pass: '%s'\n", encryptedPass);
-		printf("Decrypted Pass: '%s'\n", cpuOutputPass);
+		printf("Given Encrypted Pass: '%s'\n", encryptedPass);
+		printf("Found Decrypted Pass: '%s'\n", cpuOutputPass);
 	} else {
 		printf("Unable to determine a password.\n");
 	}
 	
+	/// Free any malloc'd memory
+	cudaFree(gpuAlphabet);
+	cudaFree(gpuNumbers);
+	cudaFree(gpuEncryptedPass);
+	cudaFree(gpuOutputPass);
+	free(cpuOutputPass);
 }
 
 

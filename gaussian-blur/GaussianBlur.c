@@ -104,8 +104,8 @@ int main (int argc, char *argv[]) {
     lodepng_encode32_file(outFileName, threadImgValues, width, height);
     printf("Successfully blurred the image into ./'%s'\n", outFileName);
 
-    //printf("Gaussian Blurred Values:\n");
-    //PrintRGBAArray(threadImgValues, width, height);
+    printf("Gaussian Blurred Values:\n");
+    PrintRGBAArray(threadImgValues, width, height);
 
     // Free any malloc'd variables before finishing
     free(values);
