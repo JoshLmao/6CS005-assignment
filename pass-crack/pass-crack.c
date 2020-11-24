@@ -9,14 +9,8 @@
 struct ThreadArgs {
     int threadIndex;
     
-    int firstStartChar;
-    int firstEndChar;
-    
-    int secondStartChar;
-    int secondEndChar;
-    
-    int numStart;
-    int numEnd;
+    int start;
+    int end;
     
     char* encryptedPass;
 };
@@ -50,32 +44,43 @@ int main(int argc, char* argv[]) {
     int threadCount = 2;
     pthread_t* threadIds = malloc( sizeof(pthread_t) * threadCount);
 
+/*
+	int totalPassCombinations = 26 * 26 * 100;
+	int oneThreadRange = threadCount / totalPassCombinations;
+	int threadRemainder = threadCount % totalPassCombinations;
+	
+	int threadCurrentSection = totalPassCombinations - threadRemainder;
+	int correction = 0;
+	*/
+	
+	int totalCombinations = 26*26*100;
+
+	int remainder = totalCombinations%threadCount;
+	totalCombinations = totalCombinations-remainder;
+	
+	int workPerThread = totalCombinations/threadCount;
+	int threadCorrection = 0;
+	
     /// Iterate over each thread and configure args and create
     for (int i = 0; i < threadCount; i++) {
         struct ThreadArgs* thisArgs = malloc( sizeof(struct ThreadArgs) );
 		
-		// Set thread index and pass encrypted pass
+		// Set thread index and original encrypted pass
         thisArgs->threadIndex = i;
         thisArgs->encryptedPass = encryptedPass;
-        
-        int aChar = 'A';
-        int zChar = 'Z';
-        int totalCharAmt = (zChar - aChar) + 1; // 26 (characters in alphabet)
-
-        /// How many chars one thread will handle
-        int threadCharAmt = totalCharAmt / threadCount;
-        
-        /// Set search ranges of each thread
-        thisArgs->firstStartChar = aChar + (threadCharAmt * i);
-        thisArgs->firstEndChar = aChar + (threadCharAmt * i) + (threadCharAmt - 1);
-        
-        thisArgs->secondStartChar = aChar;
-        thisArgs->secondEndChar = zChar;
-
-        thisArgs->numStart = 0;
-        thisArgs->numEnd = 99;
-    
-        //printf("T'%d' Args 1: '%c''%c' 2: '%c''%c' Num: '%d''%d'\n", i, thisArgs->firstStartChar, thisArgs->firstEndChar, thisArgs->secondStartChar, thisArgs->secondEndChar, thisArgs->numStart, thisArgs->numEnd);
+       	
+        /// Set the start and end range of the thread
+        thisArgs->start = threadCorrection;
+        threadCorrection = threadCorrection + workPerThread;
+        if (remainder > 0) {
+        	thisArgs->end = threadCorrection;
+        	threadCorrection++;
+        	remainder--;
+        } else {
+        	thisArgs->end = threadCorrection - 1;
+        }
+		
+        printf("T'%d' handle range start: '%d' to end: '%d'\n", i, thisArgs->start, thisArgs->end);
     
     	/// Create the thread inside the threadIds array
         pthread_create( &threadIds[i], NULL, Decrypt, thisArgs);
@@ -119,38 +124,47 @@ void* Decrypt(void* tArg) {
 	struct crypt_data data;
 	data.initialized = 0;
     
-    for ( int i = args->firstStartChar; i <= args->firstEndChar; i++ ) {
-    	for ( int j = args->secondStartChar; j <= args->secondEndChar; j++ ) {
-    		for( int k = args->numStart; k <= args->numEnd; k++ ) {
-				
-				// Exit if another thread found the answer
-				if (FoundPass != NULL) {
-					pthread_exit(NULL);
-				}
-				
-				/// Create string of potential pass from current iteration
-  				sprintf(potentialPass, "%c%c%02d", i, j, k); 
+    /// Range of possibilities of the thread
+    for(int i = args->start; i <= args->end; i++) {
+    
+    	// Exit if another thread found the answer
+		if (FoundPass != NULL) {
+			pthread_exit(NULL);
+		}
+    
+		int secondThirdPossibilities = 26 * 100;
+		
+    	int firstAlphabetIndex = i / secondThirdPossibilities;
+    	char firstChar = (char)( firstAlphabetIndex + 'A');
+    	
+    	int secondAlphabetIndex = (i / 100) % 26;
+    	char secondChar = (char) (secondAlphabetIndex + 'A');
+    	
+    	int numbers = i % 100;
+    	
+    	printf("Thread '%d' Combination: '%c %c %02d'\n", args->threadIndex, firstChar, secondChar, numbers);
+    	
+    	/// Create string of potential pass from current iteration
+		sprintf(potentialPass, "%c%c%02d", firstChar, secondChar, numbers); 
     			
-    			/// Encrypt potential password withc the original encrypted pass salt
-    			encrypted = (char *) crypt_r(potentialPass, salt, &data);
-    
-    			/// Print debug/info messages
-    			printf("T'%d' Pass: '%s' '%s'\n", args->threadIndex, potentialPass, encrypted);
-    
-    			/// Check if current encrypted matches the given encrypted pass
-    			if ( strcmp( args->encryptedPass, encrypted ) == 0 ) {
-    				printf( "T'%d' determined password to be '%s'!\n", args->threadIndex, potentialPass );
-    				
-    				/// Malloc FoundPass to same size as potentialPass
-    				/// Copy and exit
-    				FoundPass = malloc (sizeof(potentialPass));
-    				strcpy(FoundPass, potentialPass);
-    				pthread_exit(NULL);
-    				
-    				return NULL;
-    			}
-    		}
-    	}
+		/// Encrypt potential password withc the original encrypted pass salt
+		encrypted = (char *) crypt_r(potentialPass, salt, &data);
+
+		/// Print debug/info messages
+		//printf("T'%d' Pass: '%s' '%s'\n", args->threadIndex, potentialPass, encrypted);
+
+		/// Check if current encrypted matches the given encrypted pass
+		if ( strcmp( args->encryptedPass, encrypted ) == 0 ) {
+			printf( "T'%d' determined password to be '%s'!\n", args->threadIndex, potentialPass );
+			
+			/// Malloc FoundPass to same size as potentialPass
+			/// Copy and exit
+			FoundPass = malloc (sizeof(potentialPass));
+			strcpy(FoundPass, potentialPass);
+			pthread_exit(NULL);
+			
+			return NULL;
+		}
     }
 }
 
