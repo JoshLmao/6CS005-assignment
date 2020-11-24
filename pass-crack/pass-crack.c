@@ -53,12 +53,15 @@ int main(int argc, char* argv[]) {
 	int correction = 0;
 	*/
 	
-	int totalCombinations = 26*26*100;
+	/// Total possible combinations of the password
+	int totalPassCombinations = 26*26*100;
 
-	int remainder = totalCombinations%threadCount;
-	totalCombinations = totalCombinations-remainder;
+	/// Calculate remainder for the threads
+	int remainder = totalPassCombinations % threadCount;
+	totalPassCombinations = totalPassCombinations - remainder;
 	
-	int workPerThread = totalCombinations/threadCount;
+	/// Calculate how much work each thread should do, ignore decimals
+	int workPerThread = totalPassCombinations / threadCount;
 	int threadCorrection = 0;
 	
     /// Iterate over each thread and configure args and create
@@ -69,14 +72,17 @@ int main(int argc, char* argv[]) {
         thisArgs->threadIndex = i;
         thisArgs->encryptedPass = encryptedPass;
        	
-        /// Set the start and end range of the thread
+        /// Set start to the current correction
         thisArgs->start = threadCorrection;
         threadCorrection = threadCorrection + workPerThread;
+        
+        /// If some remainder, add one to the current thread
         if (remainder > 0) {
         	thisArgs->end = threadCorrection;
-        	threadCorrection++;
-        	remainder--;
+        	threadCorrection += 1;
+        	remainder -= 1;
         } else {
+	        /// else set it as the normal
         	thisArgs->end = threadCorrection - 1;
         }
 		
