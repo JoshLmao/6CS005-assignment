@@ -28,6 +28,8 @@ void substr(char *dest, char *src, int start, int length);
     First: encrypted password
 */
 int main(int argc, char* argv[]) {
+	printf("Josh Shepherd - 1700471\n\n");
+
     /// Set encrypted pass and parse if passed as argument
     /* 
     	Encrypted passwords for testing

@@ -6,8 +6,7 @@
 __device__
 char* CudaCrypt(char* rawPassword) {
 
-	static char newPassword[11]; //use static as a local pointer should not be returned
-	//char* newPassword = (char*)malloc(sizeof(char)*11);
+	char * newPassword = (char *) malloc(sizeof(char) * 11);
 
 	newPassword[0] = rawPassword[0] + 2;
 	newPassword[1] = rawPassword[0] - 2;
@@ -60,8 +59,12 @@ int isEncryptedMatching(char* one, char* two, int length) {
 __global__
 void decryptPass(char* alphabet, char* numbers, char* encryptedPass, char* deviceOutputPass)
 {
+	/// Get the unique cuda thread id
+	int uid = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	/// Check if another thread found output pass before starting
 	if(*deviceOutputPass != NULL) {
-		printf("OutputPass not null!\n");
+		//printf("OutputPass not null! Cancelling CUDA thread '%d'\n", uid);
 		return;
 	}
 
@@ -72,14 +75,17 @@ void decryptPass(char* alphabet, char* numbers, char* encryptedPass, char* devic
 	potentialPass[2] = numbers[threadIdx.x];
 	potentialPass[3] = numbers[threadIdx.y];
 	
+	/// Encrypt the potential password
 	char* encryptedPotential;
 	encryptedPotential = CudaCrypt(potentialPass);
 	
-	printf("Plain: '%s' Encrypted Plain: '%s' Target Encrypted: '%s'\n", potentialPass, encryptedPotential, encryptedPass);
-
+	//printf("UID: '%d' Plain: '%s' Encrypted Plain: '%s' Target Encrypted: '%s'\n", uid, potentialPass, encryptedPotential, encryptedPass);
+	
+	/// Check the current potential pass is matches the target encryptedPass
 	if ( isEncryptedMatching(encryptedPass, encryptedPotential, 11) > 0 )
 	{
-		printf("Encrypted pass '%s' matches potential pass = '%s'\n", encryptedPass, encryptedPotential);
+		/// Matches so set deviceOutputPass to the current combination
+		printf("UID '%d' Encrypted pass '%s' from combination '%s' matches potential pass = '%s'\n", uid, encryptedPass, potentialPass, encryptedPotential);
 		for (int i = 0; i < 4; i++ ) {
 			deviceOutputPass[i] = potentialPass[i];
 		}
@@ -90,11 +96,15 @@ void decryptPass(char* alphabet, char* numbers, char* encryptedPass, char* devic
 	
 */
 int main(int argc, char** argv) {
+	printf("Josh Shepherd - 1700471\n\n");
+
 	/// Get the encrypted pass to decrypt
 	/*
-		ccbdwy2253 = az01
-		ccbddb7362 = aa52
+		Test Encrypted Passwords:
+		az01 = ccbdwy2253
+		aa52 = ccbddb7362
 	*/
+	
 	char* encryptedPass = "ccbddb7362";
 	if (argc > 1) {
 		encryptedPass = argv[1];

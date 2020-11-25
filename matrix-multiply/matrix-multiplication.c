@@ -30,6 +30,8 @@ int canMultiplyMatrices(struct Matrix a, struct Matrix b);
 */
 int main (int argc, char* argv[]) {
 
+	printf("Josh Shepherd - 1700471\n\n");
+
     char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/1700471-matrices.txt";
     char* outputFilePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrixresults-1700471.txt";
 

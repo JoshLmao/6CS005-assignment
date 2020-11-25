@@ -188,6 +188,8 @@ void gaussianBlur(unsigned char* originalVals, unsigned char* blurredChars, int 
 	2: Path name of the output blurred png file
 */
 int main (int argc, char* argv[]) {
+	printf("Josh Shepherd - 1700471\n\n");
+	
 	// Get file name of png
 	char* fileName = "img.png";
     if (argc > 1)
