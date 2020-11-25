@@ -27,13 +27,23 @@ int canMultiplyMatrices(struct Matrix a, struct Matrix b);
 
 /*
 *  Takes a single file path argument pointing to a file in the specified format
+* 1: input file path of the input matrix file
+* 2: output file path to save the multiplied matrices to
 */
 int main (int argc, char* argv[]) {
-
 	printf("Josh Shepherd - 1700471\n\n");
 
-    char* filePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/1700471-matrices.txt";
-    char* outputFilePath = "/Users/joshshepherd/Documents/Development/6CS005-assignment/matrix-multiply/matrixresults-1700471.txt";
+    /// Parse the first argument as the input file path
+    char* filePath = "./1700471-matrices.txt";
+    if (argc > 1) {
+        filePath = argv[1];
+    }
+
+    /// Parse second argument as the output file
+    char* outputFilePath = "./matrixresults-1700471.txt";
+    if (argc > 2) {
+        outputFilePath = argv[2];
+    }
 
     /// Parses matrices file and loads into memory
     int totalMatrixCount = getFileMatrixCount(filePath);
@@ -42,10 +52,12 @@ int main (int argc, char* argv[]) {
     printf("Successfully loaded '%d' matrices from file '%s'\n", totalMatrixCount, filePath);
     
     /// Print out loaded matrices and their values
-    // for(int i = 0; i < totalMatrixCount; i++) {
-    //     printf("Matrix '%d' = %dx%d\n", i, Matrices[i]->size.x, Matrices[i]->size.y);
-    //     printMatrix(Matrices[i]->values, Matrices[i]->size.x, Matrices[i]->size.y);
-    // }
+    /*
+    for(int i = 0; i < totalMatrixCount; i++) {
+        printf("Matrix '%d' = %dx%d\n", i, Matrices[i]->size.x, Matrices[i]->size.y);
+        printMatrix(Matrices[i]->values, Matrices[i]->size.x, Matrices[i]->size.y);
+    }
+    */
 
     /// Store all resulting matrices in an array
     struct Matrix** allFinalMatrices = malloc( sizeof(struct Matrix) * totalMatrixCount );
