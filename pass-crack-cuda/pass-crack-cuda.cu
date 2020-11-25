@@ -130,6 +130,7 @@ int main(int argc, char** argv) {
 	
 	
 	printf("Finished synchronizing CUDA threads\n");
+	
 	/// Copy GPU output pass to the CPU
 	char* cpuOutputPass = (char*)malloc( sizeof(char) * 4 );
 	cudaMemcpy(cpuOutputPass, gpuOutputPass, sizeOfEncryptedPass, cudaMemcpyDeviceToHost);
