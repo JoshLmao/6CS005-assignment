@@ -70,7 +70,7 @@ void gaussianBlur(unsigned char* originalVals, unsigned char* blurredChars, int 
 	
 	/// index of which pixel this thread will focus on to blur
 	int pixelY = uid % width;
-	int pixelX = uid / height;
+	int pixelX = uid / width;
 
 	/// Check the values are valid
 	if (pixelX > width || pixelY > height) {
@@ -117,7 +117,7 @@ void gaussianBlur(unsigned char* originalVals, unsigned char* blurredChars, int 
 		validValuesCount++;
 		
 		/// Top Left value
-		if ( !atTopWall ) {
+		if ( !atTopWall ) {  
 			int tlIndex = ((pixelX - 1) * width * 4) + (colArrayIndex - (4 * 1));
 			thisValues[0] = GetRGBAValuesAtIndex( originalVals, tlIndex );
 			validValuesCount++;
